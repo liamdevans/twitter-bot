@@ -2,15 +2,14 @@ import datetime
 
 from dagster import op, job, ScheduleDefinition, repository
 
-from helpers import twitter_auth, get_next_fixture, get_opposition_team, format_tweet
+from helpers import twitter_auth, get_next_fixture, get_opposition_team, format_tweet, make_date_readable
 
 
 @op(config_schema={"team_id": int})
 def create_next_fixture_date_tweet_op(context):
     f = get_next_fixture(context.op_config["team_id"])
     opp = get_opposition_team(f, context.op_config["team_id"])
-    d = datetime.datetime.now().strftime("%H:%M:%S")
-    tweet = f"The next match is against {opp['name']} at {f.date}\n[{d}]"
+    tweet = f"The next match is against {opp['name']} on {make_date_readable(f.date)}"
     return format_tweet(tweet)
 
 
@@ -31,7 +30,7 @@ def create_next_fixture_date_tweet_job():  # TODO perform check to see if tweet 
 
 
 schedule = ScheduleDefinition(job=create_next_fixture_date_tweet_job,
-                              cron_schedule="0 10 * * *")
+                              cron_schedule="0 10 * * *")       # runs daily @ 10 AM UTC
 
 job_config = create_next_fixture_date_tweet_job.execute_in_process(
     run_config={"ops": {"create_next_fixture_date_tweet_op": {"config": {"team_id": 328}}}}

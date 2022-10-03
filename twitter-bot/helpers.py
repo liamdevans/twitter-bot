@@ -1,8 +1,6 @@
 import datetime
-import os
-import sys
-import traceback
 
+import pytz
 import requests.exceptions
 import tweepy
 import csv
@@ -31,12 +29,17 @@ def delete_tweet(tweet_id):
     client.delete_tweet(tweet_id)
 
 
-def format_tweet(my_func):
-    def modify_func(*args, **kwargs):
-        result = my_func(*args, **kwargs)
-        result += "\n\n#twitterclarets"
-        return result  # returns result of original function
-    return modify_func
+def format_tweet(tweet: str) -> str:
+    """
+    Given a tweet to be posted and appends the hashtag onto it.
+    Args:
+        tweet: str: tweet to be posted.
+
+    Returns:
+        tweet: str: same tweet with hashtag appended.
+    """
+    tweet += "\n\n#twitterclarets"
+    return tweet
 
 
 def get_next_fixture(team_id: int):
@@ -49,14 +52,48 @@ def get_next_fixture(team_id: int):
         Fixture object of next fixture, None if no fixtures available.
     """
     f = Football()
-    now = datetime.datetime.utcnow()
+    now = datetime.datetime.now()
     fixtures = f.get_team_fixtures(team_id)
-    fixtures_upcoming = [f for f in fixtures if f.date > now]  # TODO update dates to BST (uk time)
+    fixtures_upcoming = [utc_to_uk_time(f) for f in fixtures if f.date > now]
     try:
         return fixtures_upcoming[0]
     except KeyError:
         print("Dates for future fixtures are not currently available.")
         return
+
+
+def utc_to_uk_time(_object: object):
+    """ Given an object, finds all the attributes with a date type and converts them from
+    utc to UK time.
+
+    Args:
+        _object: Any pyfootball object (i.e. Fixture, Competition)
+
+    Returns:
+        _object: The same object with time attribute converted to UK time.
+    """
+    date_attributes = [key for key in _object.__dict__.keys() if type(_object.__dict__[key]) == datetime.datetime]
+    london = pytz.timezone('Europe/London')
+    for att in date_attributes:
+        _object.__setattr__(att, london.fromutc(_object.__getattribute__(att)))
+    return _object
+
+
+def make_date_readable(d: datetime.datetime) -> str:
+    """
+    Given a datetime object, returns it in a more human readable style.
+    Args:
+        d: datetime object
+
+    Returns:
+        str: human readble datetime
+    """
+    day = d.day
+    if 4 <= day <= 20 or 24 <= day <= 30:
+        suffix = "th"
+    else:
+        suffix = ["st", "nd", "rd"][day % 10 - 1]
+    return d.strftime(f"%a %-d{suffix} %b at %H:%M %p")
 
 
 def get_opposition_team(fixture, team_id):  # TODO add type hinting for Fixture objects
@@ -84,6 +121,7 @@ def get_comp_ids():
     return [{'comp_id': comp.id, 'comp_name': comp.name} for comp in comps]
 
 
+# TODO turn data writers into dagster assets
 def write_comp_ids():
     path = Path.cwd().parent / "data" / "comp_ids.csv"
     with open(path, mode='w') as csv_file:
@@ -116,39 +154,6 @@ def write_comp_team_ids(comp_id):
     return
 
 
-def oauth_login():
-    """Authenticate with twitter using OAuth"""
-    consumer_key = keys.CONSUMER_API_KEY
-    consumer_secret = keys.CONSUMER_API_KEY_SECRET
-
-    auth = tweepy.OAuth1UserHandler(consumer_key, consumer_secret)
-    auth_url = auth.get_authorization_url()
-
-    verify_code = input(
-        "Authenticate at %s and then enter you verification code here > " % auth_url
-    )
-    auth.get_access_token(verify_code)
-
-    return tweepy.API(auth)
-
-
-def batch_delete(api):
-    print(
-        "You are about to delete all tweets from the account @%s."
-        % api.verify_credentials().screen_name
-    )
-    print("Does this sound ok? There is no undo! Type yes to carry out this action.")
-    do_delete = input("> ")
-    if do_delete.lower() == "yes":
-        for status in tweepy.Cursor(api.user_timeline).items():
-            try:
-                api.destroy_status(status.id)
-                print("Deleted:", status.id)
-            except Exception:
-                traceback.print_exc()
-                print("Failed to delete:", status.id)
-
-
 if __name__ == '__main__':
     print("running helpers.py")
     # print(write_comp_ids())
@@ -157,7 +162,3 @@ if __name__ == '__main__':
     # print(get_comp_team_ids(2016))
     # write_comp_team_ids(2016002020)
     # print(f"The next fixture is: {get_next_fixture(328)}")
-    # api = oauth_login()
-    # batch_delete(api)
-
-
