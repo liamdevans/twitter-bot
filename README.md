@@ -9,6 +9,8 @@
   - create better stats to post (plots/figures) 
   - pre-match post on opposition team
   - make reusable for other teams
+    - work with other aspects of Twitter API (i.e. if someone @'s account with team name, respond with next opponent)
+  - experiment with email functionality
 
 
 ## Post a tweet

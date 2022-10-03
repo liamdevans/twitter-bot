@@ -8,3 +8,4 @@ tweepy==4.10.1
 urllib3==1.26.12
 
 mplsoccer~=1.1.6
+dagster==1.0.11
