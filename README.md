@@ -5,6 +5,8 @@
   - post to a Twitter account :white_check_mark:
   - scrape some football data (stats, lineups) using https://docs.football-data.org/general/v4/ :white_check_mark:
   - schedule posting to Twitter (using dagster?) on match-days :white_check_mark:
+  - add testing
+  - experiment with Jenkins/githooks to ensure tests pass on commit/PR
 - Further plan
   - create better stats to post (plots/figures) 
   - pre-match post on opposition team
