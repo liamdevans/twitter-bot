@@ -39,6 +39,6 @@ def batch_delete(api):
                 print("Failed to delete:", status.id)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     api = oauth_login()
     batch_delete(api)

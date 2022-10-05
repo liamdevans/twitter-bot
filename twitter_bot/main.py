@@ -2,7 +2,13 @@ import datetime
 
 from dagster import op, job, ScheduleDefinition, repository
 
-from helpers import twitter_auth, get_next_fixture, get_opposition_team, format_tweet, make_date_readable
+from helpers import (
+    twitter_auth,
+    get_next_fixture,
+    get_opposition_team,
+    format_tweet,
+    make_date_readable,
+)
 
 
 @op(config_schema={"team_id": int})
@@ -29,24 +35,23 @@ def create_next_fixture_date_tweet_job():  # TODO perform check to see if tweet 
     post_tweet(create_next_fixture_date_tweet_op())
 
 
-schedule = ScheduleDefinition(job=create_next_fixture_date_tweet_job,
-                              cron_schedule="0 10 * * *")       # runs daily @ 10 AM UTC
+schedule = ScheduleDefinition(
+    job=create_next_fixture_date_tweet_job, cron_schedule="0 10 * * *"
+)  # runs daily @ 10 AM UTC
 
 job_config = create_next_fixture_date_tweet_job.execute_in_process(
-    run_config={"ops": {"create_next_fixture_date_tweet_op": {"config": {"team_id": 328}}}}
+    run_config={
+        "ops": {"create_next_fixture_date_tweet_op": {"config": {"team_id": 328}}}
+    }
 )
 
 
 @repository
 def next_fixture_repo():
-    return [schedule,
-            create_next_fixture_date_tweet_job]
+    return [schedule, create_next_fixture_date_tweet_job]
+
 
 # TODO - if today is matchday tweet about opposition and
 #  wait for game end to tweet stats
 
 # TODO create tests for functions
-
-
-
-

@@ -19,7 +19,7 @@ def twitter_auth():
         consumer_key=keys.CONSUMER_API_KEY,
         consumer_secret=keys.CONSUMER_API_KEY_SECRET,
         access_token=keys.ACCESS_TOKEN,
-        access_token_secret=keys.ACCESS_TOKEN_SECRET
+        access_token_secret=keys.ACCESS_TOKEN_SECRET,
     )
     return client
 
@@ -63,7 +63,7 @@ def get_next_fixture(team_id: int):
 
 
 def utc_to_uk_time(_object: object):
-    """ Given an object, finds all the attributes with a date type and converts them from
+    """Given an object, finds all the attributes with a date type and converts them from
     utc to UK time.
 
     Args:
@@ -72,8 +72,12 @@ def utc_to_uk_time(_object: object):
     Returns:
         _object: The same object with time attribute converted to UK time.
     """
-    date_attributes = [key for key in _object.__dict__.keys() if type(_object.__dict__[key]) == datetime.datetime]
-    london = pytz.timezone('Europe/London')
+    date_attributes = [
+        key
+        for key in _object.__dict__.keys()
+        if type(_object.__dict__[key]) == datetime.datetime
+    ]
+    london = pytz.timezone("Europe/London")
     for att in date_attributes:
         _object.__setattr__(att, london.fromutc(_object.__getattribute__(att)))
     return _object
@@ -111,20 +115,23 @@ def get_opposition_team(fixture, team_id):  # TODO add type hinting for Fixture 
     elif fixture.away_team_id == team_id:
         return fixture.home_team
     else:
-        print(f"Team with ID: {team_id} are not participating in {fixture.home_team_name}({fixture.home_team_id}) "
-              f"vs {fixture.away_team_name}({fixture.away_team_id})")
+        print(
+            f"Team with ID: {team_id} are not participating in "
+            f"{fixture.home_team_name}({fixture.home_team_id}) "
+            f"vs {fixture.away_team_name}({fixture.away_team_id})"
+        )
 
 
 def get_comp_ids():
     f = Football()
     comps = f.get_all_competitions()
-    return [{'comp_id': comp.id, 'comp_name': comp.name} for comp in comps]
+    return [{"comp_id": comp.id, "comp_name": comp.name} for comp in comps]
 
 
 # TODO turn data writers into dagster assets
 def write_comp_ids():
     path = Path.cwd().parent / "data" / "comp_ids.csv"
-    with open(path, mode='w') as csv_file:
+    with open(path, mode="w") as csv_file:
         fieldnames = ["comp_id", "comp_name"]
         writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
         writer.writeheader()
@@ -136,13 +143,13 @@ def write_comp_ids():
 def get_comp_team_ids(comp_id):
     f = Football()
     teams = f.get_competition_teams(comp_id)
-    return [{'team_id': team.id, 'team_name': team.name} for team in teams]
+    return [{"team_id": team.id, "team_name": team.name} for team in teams]
 
 
 def write_comp_team_ids(comp_id):
     path = Path.cwd().parent / "data" / f"team_ids_{comp_id}.csv"
     try:
-        with open(path, mode='w') as csv_file:
+        with open(path, mode="w") as csv_file:
             fieldnames = ["team_id", "team_name"]
             writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
             writer.writeheader()
@@ -154,7 +161,7 @@ def write_comp_team_ids(comp_id):
     return
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     print("running helpers.py")
     # print(write_comp_ids())
     # print(get_comp_ids())
