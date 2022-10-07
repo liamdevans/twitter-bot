@@ -4,6 +4,8 @@ A module of helper functions to be used within the `main` module of the `twitter
 import datetime
 import csv
 from pathlib import Path
+from typing import List, Dict
+
 import pytz
 import requests.exceptions
 import tweepy
@@ -130,7 +132,7 @@ def get_opposition_team(fixture, team_id):
     return None
 
 
-def get_comp_ids() -> list(dict):
+def get_comp_ids() -> List[Dict[int, str]]:
     """
     Function to get all the competitions available from the football-data.org API.
     Returns:
@@ -155,7 +157,7 @@ def write_comp_ids():
             writer.writerow(row)
 
 
-def get_comp_team_ids(comp_id) -> list(dict):
+def get_comp_team_ids(comp_id) -> List[Dict[int, str]]:
     """
     Given a comp_id, returns all the teams involved from the football-data.org API.
     Returns:
@@ -182,13 +184,3 @@ def write_comp_team_ids(comp_id):
     except requests.exceptions.HTTPError:
         print(f"Competition ID {comp_id} not found.")
         path.unlink()
-
-
-if __name__ == "__main__":
-    print("running helpers.py")
-    # print(write_comp_ids())
-    # print(get_comp_ids())
-    # write_comp_ids()
-    # print(get_comp_team_ids(2016))
-    # write_comp_team_ids(2016002020)
-    # print(f"The next fixture is: {get_next_fixture(328)}")

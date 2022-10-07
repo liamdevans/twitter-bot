@@ -2,9 +2,9 @@
 A module containing dagster ops and jobs used to schedule football tweets as part
 of the `twitter_bot` package.
 """
-from dagster import op, job, ScheduleDefinition, repository, build_op_context
+from dagster import op, job, ScheduleDefinition, repository
 
-from .helpers import (
+from helpers import (
     twitter_auth,
     get_next_fixture,
     get_opposition_team,
@@ -72,8 +72,3 @@ def next_fixture_repo():
         list of job object and ScheduleDefinition
     """
     return [schedule, create_next_fixture_date_tweet_job]
-
-
-if __name__ == "__main__":
-    context_ = build_op_context(op_config={"team_id": 328})
-    print(create_next_fixture_date_tweet_op(context_))
