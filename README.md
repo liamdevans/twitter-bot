@@ -8,7 +8,7 @@
   - add testing
   - experiment with Jenkins/githooks to ensure tests pass on commit/PR
 - Further plan
-  - create better stats to post (plots/figures) 
+  - create better stats to post (plots/figures)
   - pre-match post on opposition team
   - make reusable for other teams
     - work with other aspects of Twitter API (i.e. if someone @'s account with team name, respond with next opponent)
@@ -18,8 +18,8 @@
 ## Post a tweet
 
 We can either:
-1. Use the `requests` module to make a `POST` request ourselves.  
-Which requires a number of OAuth configurations to be created for us to [Authenticate](https://developer.twitter.com/en/docs/authentication/oauth-1-0a/authorizing-a-request).  
+1. Use the `requests` module to make a `POST` request ourselves.
+Which requires a number of OAuth configurations to be created for us to [Authenticate](https://developer.twitter.com/en/docs/authentication/oauth-1-0a/authorizing-a-request).
 See examples of how them [here](https://github.com/anein/twitter-signature-python/blob/master/test/test-generate.py).
 ```python
 import requests
@@ -49,8 +49,8 @@ response = requests.request("POST", url, headers=headers, data=payload)
 
 print(response.text)
 ```
-2. Using [tweepy](https://docs.tweepy.org/en/stable/index.html)  
-Authenticates to Twitter API v2 using [OAuth 1.0a User Context](https://docs.tweepy.org/en/stable/authentication.html#id3).   
+2. Using [tweepy](https://docs.tweepy.org/en/stable/index.html)
+Authenticates to Twitter API v2 using [OAuth 1.0a User Context](https://docs.tweepy.org/en/stable/authentication.html#id3).
 ```python
 import tweepy
 from configs import keys
@@ -66,3 +66,13 @@ client = tweepy.Client(
 )
 client.create_tweet(text=my_tweet)
 ```
+
+
+## TODO
+- TODO if today is match day tweet about opposition and wait for game end to tweet stats
+- TODO perform check to see if tweet is same as previous post
+- TODO create tests for functions
+- TODO add logging/dagster logging
+
+- TODO turn data writers into dagster assets
+- TODO add type hinting for Fixture objects

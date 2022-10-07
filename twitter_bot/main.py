@@ -1,8 +1,10 @@
-import datetime
+"""
+A module containing dagster ops and jobs used to schedule football tweets as part
+of the `twitter_bot` package.
+"""
+from dagster import op, job, ScheduleDefinition, repository, build_op_context
 
-from dagster import op, job, ScheduleDefinition, repository
-
-from helpers import (
+from .helpers import (
     twitter_auth,
     get_next_fixture,
     get_opposition_team,
@@ -13,15 +15,26 @@ from helpers import (
 
 @op(config_schema={"team_id": int})
 def create_next_fixture_date_tweet_op(context):
-    f = get_next_fixture(context.op_config["team_id"])
-    opp = get_opposition_team(f, context.op_config["team_id"])
-    tweet = f"The next match is against {opp['name']} on {make_date_readable(f.date)}"
+    """
+    Dagster op that forms the first part of the job create_next_fixture_date_tweet_job.
+    Uses the get_next_fixture and get_opposition_team functions to return a
+    formatted, 'tweetable' string.
+    Args:
+        context: context contains dagster configuration for team_id
+
+    Returns:
+        A formatted, Twitter ready tweet
+    """
+    fix = get_next_fixture(context.op_config["team_id"])
+    opp = get_opposition_team(fix, context.op_config["team_id"])
+    tweet = f"The next match is against {opp['name']} on {make_date_readable(fix.date)}"
     return format_tweet(tweet)
 
 
 @op
 def post_tweet(tweet: str) -> None:
     """
+    Dagster op that forms the second part of the job create_next_fixture_date_tweet_job.
     Given a tweet, posts to account using Twitter API v2 Client.
     Args:
         tweet: Tweet to post
@@ -31,7 +44,11 @@ def post_tweet(tweet: str) -> None:
 
 
 @job
-def create_next_fixture_date_tweet_job():  # TODO perform check to see if tweet is same as previous post
+def create_next_fixture_date_tweet_job():
+    """
+    Dagster job to create_next_fixture_date_tweet_op and then post_tweet.
+    Job scheduled to run 10 AM UTC daily.
+    """
     post_tweet(create_next_fixture_date_tweet_op())
 
 
@@ -48,10 +65,15 @@ job_config = create_next_fixture_date_tweet_job.execute_in_process(
 
 @repository
 def next_fixture_repo():
+    """
+    Dagster repository object for the create_next_fixture_date_tweet_job and its
+    corresponding schedule.
+    Returns:
+        list of job object and ScheduleDefinition
+    """
     return [schedule, create_next_fixture_date_tweet_job]
 
 
-# TODO - if today is matchday tweet about opposition and
-#  wait for game end to tweet stats
-
-# TODO create tests for functions
+if __name__ == "__main__":
+    context_ = build_op_context(op_config={"team_id": 328})
+    print(create_next_fixture_date_tweet_op(context_))

@@ -1,12 +1,15 @@
+"""
+A module of helper functions to be used within the `main` module of the `twitter_bot` package.
+"""
 import datetime
-
+import csv
+from pathlib import Path
 import pytz
 import requests.exceptions
 import tweepy
-import csv
-from pathlib import Path
-from configs import keys
+
 from pyfootball.football import Football
+from configs import keys
 
 
 def twitter_auth():
@@ -25,6 +28,11 @@ def twitter_auth():
 
 
 def delete_tweet(tweet_id):
+    """
+    Given a tweet_id, delete the corresponding tweet on the account we authenticate to.
+    Args:
+        tweet_id: ID of the tweet
+    """
     client = twitter_auth()
     client.delete_tweet(tweet_id)
 
@@ -51,15 +59,15 @@ def get_next_fixture(team_id: int):
     Returns:
         Fixture object of next fixture, None if no fixtures available.
     """
-    f = Football()
+    fbl = Football()
     now = datetime.datetime.now()
-    fixtures = f.get_team_fixtures(team_id)
-    fixtures_upcoming = [utc_to_uk_time(f) for f in fixtures if f.date > now]
+    fixtures = fbl.get_team_fixtures(team_id)
+    fixtures_upcoming = [utc_to_uk_time(fix) for fix in fixtures if fix.date > now]
     try:
         return fixtures_upcoming[0]
     except KeyError:
         print("Dates for future fixtures are not currently available.")
-        return
+        return None
 
 
 def utc_to_uk_time(_object: object):
@@ -75,32 +83,32 @@ def utc_to_uk_time(_object: object):
     date_attributes = [
         key
         for key in _object.__dict__.keys()
-        if type(_object.__dict__[key]) == datetime.datetime
+        if isinstance(_object.__dict__[key], datetime.datetime)
     ]
     london = pytz.timezone("Europe/London")
     for att in date_attributes:
-        _object.__setattr__(att, london.fromutc(_object.__getattribute__(att)))
+        setattr(_object, att, london.fromutc(getattr(_object, att)))
     return _object
 
 
-def make_date_readable(d: datetime.datetime) -> str:
+def make_date_readable(date_obj: datetime.datetime) -> str:
     """
     Given a datetime object, returns it in a more human readable style.
     Args:
-        d: datetime object
+        date_obj: datetime object
 
     Returns:
-        str: human readble datetime
+        str: human readable datetime
     """
-    day = d.day
+    day = date_obj.day
     if 4 <= day <= 20 or 24 <= day <= 30:
         suffix = "th"
     else:
         suffix = ["st", "nd", "rd"][day % 10 - 1]
-    return d.strftime(f"%a %-d{suffix} %b at %H:%M %p")
+    return date_obj.strftime(f"%a %-d{suffix} %b at %-I:%M %p")
 
 
-def get_opposition_team(fixture, team_id):  # TODO add type hinting for Fixture objects
+def get_opposition_team(fixture, team_id):
     """
     Given a Fixture object and team_id, return the Team object that represents the opposition team.
     Args:
@@ -112,44 +120,60 @@ def get_opposition_team(fixture, team_id):  # TODO add type hinting for Fixture 
     """
     if fixture.home_team_id == team_id:
         return fixture.away_team
-    elif fixture.away_team_id == team_id:
+    if fixture.away_team_id == team_id:
         return fixture.home_team
-    else:
-        print(
-            f"Team with ID: {team_id} are not participating in "
-            f"{fixture.home_team_name}({fixture.home_team_id}) "
-            f"vs {fixture.away_team_name}({fixture.away_team_id})"
-        )
+    print(
+        f"Team with ID: {team_id} are not participating in "
+        f"{fixture.home_team_name}({fixture.home_team_id}) "
+        f"vs {fixture.away_team_name}({fixture.away_team_id})"
+    )
+    return None
 
 
-def get_comp_ids():
-    f = Football()
-    comps = f.get_all_competitions()
+def get_comp_ids() -> list(dict):
+    """
+    Function to get all the competitions available from the football-data.org API.
+    Returns:
+        competition_ids and competition_names
+    """
+    fbl = Football()
+    comps = fbl.get_all_competitions()
     return [{"comp_id": comp.id, "comp_name": comp.name} for comp in comps]
 
 
-# TODO turn data writers into dagster assets
 def write_comp_ids():
+    """
+    Function to create a csv containing all the competition IDs and names for those available
+    in the football-data.org API
+    """
     path = Path.cwd().parent / "data" / "comp_ids.csv"
-    with open(path, mode="w") as csv_file:
+    with open(path, mode="w", encoding="utf-8") as csv_file:
         fieldnames = ["comp_id", "comp_name"]
         writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
         writer.writeheader()
         for row in get_comp_ids():
             writer.writerow(row)
-    return
 
 
-def get_comp_team_ids(comp_id):
-    f = Football()
-    teams = f.get_competition_teams(comp_id)
+def get_comp_team_ids(comp_id) -> list(dict):
+    """
+    Given a comp_id, returns all the teams involved from the football-data.org API.
+    Returns:
+        team_ids and team_names
+    """
+    fbl = Football()
+    teams = fbl.get_competition_teams(comp_id)
     return [{"team_id": team.id, "team_name": team.name} for team in teams]
 
 
 def write_comp_team_ids(comp_id):
+    """
+    Given a comp_id, creates a csv containing all the team IDs and names involved
+    for those available in the football-data.org API
+    """
     path = Path.cwd().parent / "data" / f"team_ids_{comp_id}.csv"
     try:
-        with open(path, mode="w") as csv_file:
+        with open(path, mode="w", encoding="utf-8") as csv_file:
             fieldnames = ["team_id", "team_name"]
             writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
             writer.writeheader()
@@ -158,7 +182,6 @@ def write_comp_team_ids(comp_id):
     except requests.exceptions.HTTPError:
         print(f"Competition ID {comp_id} not found.")
         path.unlink()
-    return
 
 
 if __name__ == "__main__":
