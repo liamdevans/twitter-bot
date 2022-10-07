@@ -2,7 +2,7 @@
 .PHONY: lint
 lint:
 	python -m pylint --version
-	python -m pylint twitter_bot
+	python -m pylint twitter_bot --output-format colorized
 ## Run tests using pytest
 .PHONY: test
 test:
