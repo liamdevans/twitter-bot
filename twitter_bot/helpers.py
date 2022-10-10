@@ -4,7 +4,7 @@ A module of helper functions to be used within the `main` module of the `twitter
 import datetime
 import csv
 from pathlib import Path
-from typing import List, Dict
+from typing import List, Dict, Any
 
 import pytz
 import requests.exceptions
@@ -27,6 +27,14 @@ def twitter_auth():
         access_token_secret=keys.ACCESS_TOKEN_SECRET,
     )
     return client
+
+
+def get_prev_response():
+    """Returns information about the most recent response.
+
+    :returns: prev_response: Information about the most recent response.
+    """
+    return globals.prev_response
 
 
 def delete_tweet(tweet_id):
@@ -95,12 +103,12 @@ def utc_to_uk_time(_object: object):
 
 def make_date_readable(date_obj: datetime.datetime) -> str:
     """
-    Given a datetime object, returns it in a more human readable style.
+    Given a datetime object, returns it in a more human-readable style.
     Args:
         date_obj: datetime object
 
     Returns:
-        str: human readable datetime
+        str: human-readable datetime
     """
     day = date_obj.day
     if 4 <= day <= 20 or 24 <= day <= 30:
@@ -132,7 +140,29 @@ def get_opposition_team(fixture, team_id):
     return None
 
 
-def get_comp_ids() -> List[Dict[int, str]]:
+def home_or_away(fixture, team_id: int) -> str:
+    """
+    Given a Fixture object, return whether the team corresponding to team_id are playing at home or away.
+    Args:
+        fixture: Fixture object.
+        team_id: ID of the team you want the location of.
+
+    Returns:
+        str: 'at home' or 'away', None if team_id not part of Fixture.
+    """
+    if fixture.home_team_id == team_id:
+        return "at home"
+    if fixture.away_team_id == team_id:
+        return "away"
+    print(
+        f"Team with ID: {team_id} are not participating in "
+        f"{fixture.home_team_name}({fixture.home_team_id}) "
+        f"vs {fixture.away_team_name}({fixture.away_team_id})"
+    )
+    return None
+
+
+def get_comp_ids() -> List[Dict[str, Any]]:
     """
     Function to get all the competitions available from the football-data.org API.
     Returns:
@@ -157,7 +187,7 @@ def write_comp_ids():
             writer.writerow(row)
 
 
-def get_comp_team_ids(comp_id) -> List[Dict[int, str]]:
+def get_comp_team_ids(comp_id) -> List[Dict[str, Any]]:
     """
     Given a comp_id, returns all the teams involved from the football-data.org API.
     Returns:

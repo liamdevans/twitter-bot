@@ -11,6 +11,7 @@ from helpers import (
     get_opposition_team,
     format_tweet,
     make_date_readable,
+    home_or_away,
 )
 
 
@@ -28,8 +29,10 @@ def create_next_fixture_date_tweet_op(context):
     """
     fix = get_next_fixture(context.op_config["team_id"])
     opp = get_opposition_team(fix, context.op_config["team_id"])
-    tweet = f"The next match is against {opp['name']} on {make_date_readable(fix.date)}"
-    return format_tweet(tweet)
+    loc = home_or_away(fix, context.op_config["team_id"])
+    tweet = f"The next match is {loc} against {opp['name']} on {make_date_readable(fix.date)}"
+    # return format_tweet(tweet)
+    return tweet
 
 
 @op
