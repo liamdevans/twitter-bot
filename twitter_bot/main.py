@@ -15,7 +15,7 @@ from helpers import (
     make_date_readable,
     home_or_away,
 )
-import globals
+import global_vars
 
 
 @op(config_schema={"team_id": int})
@@ -31,10 +31,10 @@ def get_next_fixture_obj(context):
     }
 )
 def is_fixture_date_updated(fix):
-    if fix.date == globals.latest_fixture:
+    if fix.date == global_vars.latest_fixture:
         yield Output(fix, "is_it_matchday_branch")
     else:
-        globals.update_latest_fixture(fix)
+        global_vars.update_latest_fixture(fix)
         yield Output(fix, "create_next_fixture_date_tweet_branch")
 
 
