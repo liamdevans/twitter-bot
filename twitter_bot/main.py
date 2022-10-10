@@ -2,6 +2,7 @@
 A module containing dagster ops and jobs used to schedule football tweets as part
 of the `twitter_bot` package.
 """
+import tweepy.errors
 from dagster import op, job, ScheduleDefinition, repository
 
 from helpers import (
@@ -40,7 +41,10 @@ def post_tweet(tweet: str) -> None:
         tweet: Tweet to post
     """
     client = twitter_auth()
-    client.create_tweet(text=tweet)
+    try:
+        client.create_tweet(text=tweet)
+    except tweepy.errors.Forbidden:
+        print("Not allowed to create a tweet with duplicate content")
 
 
 @job
