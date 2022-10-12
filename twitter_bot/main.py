@@ -26,6 +26,7 @@ from helpers import (
     make_date_readable,
     home_or_away,
     write_latest_fixture_date,
+    make_ordinal,
 )
 from standings import Tables
 from configs.fbref import championship_url
@@ -84,7 +85,6 @@ def create_next_fixture_date_tweet(context, fix):
     opp = get_opposition_team(fix, team_id)
     loc = home_or_away(fix, team_id)
     tweet = f"The next match is {loc} against {opp['name']} on {make_date_readable(fix.date)}"
-    # return format_tweet(tweet)
     return tweet
 
 
@@ -104,10 +104,30 @@ def is_it_matchday(fix):
 
 
 @op
-def create_opp_stats(fix) -> str:
-    print("creating stats on opp")
-    my_tbl = Tables(championship_url)
-    # TODO
+def create_opp_stats(context, fix):
+    team_id = context.run_config["ops"]["get_next_fixture_obj"]["config"]["team_id"]
+    opp = get_opposition_team(fix, team_id)
+    my_tbl = Tables(
+        championship_url
+    )  # TODO remove hardcode. make a configuration when selecting league
+    stats = my_tbl.collect_stats(opp)
+    stats["opposition"] = opp
+    stats["position"] = make_ordinal(stats["position"])
+    stats["competition"] = fix.competition
+    return stats
+
+
+@op
+def create_opp_stats_tweet(stats):
+    tweet = (
+        f"{stats['opposition']} currently sit {stats['position']} in the {stats['competition']}\n"
+        f"W/D/L {stats['wins']}/{stats['draws']}/{stats['loss']}\n"
+        f"Scoring {stats['goals_for']} and conceding {stats['goals_against']} goals\n"
+        f"Form: {stats['form_emoji']}\n"
+        f"Top Scorer(s): {stats['top_scorer']}"
+    )
+    # TODO incorporate character count to not exceed 280, else remove parts
+    return tweet
 
 
 @op
@@ -125,6 +145,7 @@ def post_tweet(tweet: str) -> None:
         tweet: Tweet to post
     """
     client = twitter_auth()
+    tweet = format_tweet(tweet)
     try:
         client.create_tweet(text=tweet)
     except tweepy.errors.Forbidden:
@@ -146,7 +167,7 @@ def twitter_bot_graph():
     post_tweet(create_next_fixture_date_tweet(create_next_fixture_date_tweet_branch))
 
     create_opp_stats_branch, do_nothing_branch = is_it_matchday(is_it_matchday_branch)
-    post_tweet(create_opp_stats(create_opp_stats_branch))
+    post_tweet(create_opp_stats_tweet(create_opp_stats(create_opp_stats_branch)))
     do_nothing(do_nothing_branch)
 
 

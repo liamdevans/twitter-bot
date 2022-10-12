@@ -4,6 +4,7 @@ import pandas as pd
 from configs.fbref import championship_url
 import re
 from pathlib import Path
+from functools import partialmethod
 
 
 def write_df_to_csv(df: pd.DataFrame, name: str):
@@ -54,11 +55,52 @@ class Tables:
                 continue
         return None
 
+    def _get_team_stat(self, team_name: str, stat: str):
+        team_name = self.find_team(team_name)
+        tbl = self.overall_standings_table
+        return tbl.loc[tbl["Squad"] == f"{team_name}"][f"{stat}"].item()
+
+    get_team_form = partialmethod(_get_team_stat, stat="Last 5")
+    get_team_position = partialmethod(_get_team_stat, stat="Rk")
+    get_team_games_played = partialmethod(_get_team_stat, stat="MP")
+    get_team_wins = partialmethod(_get_team_stat, stat="W")
+    get_team_draws = partialmethod(_get_team_stat, stat="D")
+    get_team_loss = partialmethod(_get_team_stat, stat="L")
+    get_team_goals_for = partialmethod(_get_team_stat, stat="GF")
+    get_team_goals_against = partialmethod(_get_team_stat, stat="GA")
+    get_team_goal_difference = partialmethod(_get_team_stat, stat="GD")
+    get_team_points = partialmethod(_get_team_stat, stat="Pts")
+    get_team_top_scorer = partialmethod(_get_team_stat, stat="Top Team Scorer")
+
+    @staticmethod
+    def form_to_emoji(form: str):
+        win = "\U0001F7E2"
+        draw = "\U0001F7E1"
+        loss = "\U0001F534"
+        form = form.replace("W", win).replace("D", draw).replace("L", loss)
+        return form
+
+    def runner_get_form_emoji(self, team_name):
+        return self.form_to_emoji(self.get_team_form(team_name))
+
+    def collect_stats(self, team_name: str):
+        return {
+            "position": self.get_team_position(team_name),
+            "wins": self.get_team_wins(team_name),
+            "draws": self.get_team_draws(team_name),
+            "loss": self.get_team_loss(team_name),
+            "goals_for": self.get_team_goals_for(team_name),
+            "goals_against": self.get_team_goals_against(team_name),
+            "form_emoji": self.runner_get_form_emoji(team_name),
+            "top_scorer": self.get_team_top_scorer(team_name),
+        }
+
 
 if __name__ == "__main__":
     championship = Tables(championship_url)
+    _team_name = "Burnley"
+    print(championship.runner_get_form_emoji(_team_name))
+    print(championship.get_team_position(_team_name))
+    print(championship.get_team_games_played(_team_name))
 
-    # championship.overall_standings_table = pd.DataFrame(['Bristol City', 'Bristol Rovers'], columns=['Squad'])
-    print(championship.find_team("Preston North End FC"))
-
-    # write_df_to_csv(champ_tbl, "champ_tbl")
+    print(championship.overall_standings_table.columns)

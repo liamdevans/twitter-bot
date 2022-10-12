@@ -2,14 +2,12 @@
 A module of helper functions to be used within the `main` module of the `twitter_bot` package.
 """
 import datetime
-
-
 import pytz
-
 import tweepy
-
 from pyfootball.football import Football
 from configs import keys
+
+from pathlib import Path
 
 
 def twitter_auth():
@@ -91,10 +89,7 @@ def make_date_readable(date_obj: datetime.datetime) -> str:
         str: human-readable datetime
     """
     day = date_obj.day
-    if 4 <= day <= 20 or 24 <= day <= 30:
-        suffix = "th"
-    else:
-        suffix = ["st", "nd", "rd"][day % 10 - 1]
+    suffix = make_ordinal(day)[-2:]
     return date_obj.strftime(f"%a %-d{suffix} %b at %-I:%M %p")
 
 
@@ -140,6 +135,34 @@ def home_or_away(fixture, team_id: int) -> str:
         f"vs {fixture.away_team_name}({fixture.away_team_id})"
     )
     return None
+
+
+def write_latest_fixture_date(fixture_date: datetime.datetime):
+    path = Path().cwd() / "latest_fixture.txt"
+    date = datetime.datetime.strftime(fixture_date, format="%d-%m-%y")
+    with open(path, mode="w", encoding="utf-8") as file:
+        file.write(date)
+
+
+def get_latest_fixture_date():
+    pass
+
+
+def make_ordinal(n):
+    """
+    Convert an integer into its ordinal representation::
+
+        make_ordinal(0)   => '0th'
+        make_ordinal(3)   => '3rd'
+        make_ordinal(122) => '122nd'
+        make_ordinal(213) => '213th'
+    """
+    n = int(n)
+    if 11 <= (n % 100) <= 13:
+        suffix = "th"
+    else:
+        suffix = ["th", "st", "nd", "rd", "th"][min(n % 10, 4)]
+    return str(n) + suffix
 
 
 def delete_tweet(tweet_id):
