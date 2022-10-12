@@ -106,25 +106,26 @@ def is_it_matchday(fix):
 @op
 def create_opp_stats(context, fix):
     team_id = context.run_config["ops"]["get_next_fixture_obj"]["config"]["team_id"]
-    opp = get_opposition_team(fix, team_id)
+    opp_name = get_opposition_team(fix, team_id)["name"]
     my_tbl = Tables(
         championship_url
     )  # TODO remove hardcode. make a configuration when selecting league
-    stats = my_tbl.collect_stats(opp)
-    stats["opposition"] = opp
+    stats = my_tbl.collect_stats(opp_name)
+    stats["opposition"] = opp_name
     stats["position"] = make_ordinal(stats["position"])
-    stats["competition"] = fix.competition
+    stats["competition"] = fix.competition["name"]
     return stats
 
 
 @op
 def create_opp_stats_tweet(stats):
+    football = "\U000026BD"
     tweet = (
-        f"{stats['opposition']} currently sit {stats['position']} in the {stats['competition']}\n"
-        f"W/D/L {stats['wins']}/{stats['draws']}/{stats['loss']}\n"
-        f"Scoring {stats['goals_for']} and conceding {stats['goals_against']} goals\n"
+        f"{stats['opposition']} currently sit {stats['position']} in the {stats['competition']}.\n"
+        f"Having scored {stats['goals_for']} and conceded {stats['goals_against']} goals {football}\n\n"
         f"Form: {stats['form_emoji']}\n"
-        f"Top Scorer(s): {stats['top_scorer']}"
+        f"Top Scorer(s): {stats['top_scorer']}\n"
+        f"(W/D/L) {stats['wins']}/{stats['draws']}/{stats['loss']}\n"
     )
     # TODO incorporate character count to not exceed 280, else remove parts
     return tweet
@@ -174,7 +175,7 @@ def twitter_bot_graph():
 @schedule(
     job=twitter_bot_graph,
     execution_timezone="Europe/London",
-    cron_schedule="0 12 * * *",
+    cron_schedule="0 13 * * *",
 )
 def twitter_bot_schedule():
     return RunRequest(
