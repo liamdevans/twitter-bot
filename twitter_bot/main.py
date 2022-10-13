@@ -90,7 +90,7 @@ def create_next_fixture_date_tweet(context, fix):
 
 @op(
     out={
-        "create_opp_stats_branch": Out(is_required=False),
+        "league_match_branch": Out(is_required=False),
         "do_nothing_branch": Out(is_required=False),
     }
 )
@@ -98,6 +98,19 @@ def is_it_matchday(fix):
     my_logger = get_dagster_logger()
     my_logger.info(f"The fixture object is: {fix}")
     if fix.date.date() == datetime.today().date():
+        yield Output(fix, "league_match_branch")
+    else:
+        yield Output(fix, "do_nothing_branch")
+
+
+@op(
+    out={
+        "create_opp_stats_branch": Out(is_required=False),
+        "do_nothing_branch": Out(is_required=False),
+    }
+)
+def is_it_a_league_match(fix):
+    if fix.competition["type"] == "LEAGUE":
         yield Output(fix, "create_opp_stats_branch")
     else:
         yield Output(fix, "do_nothing_branch")
@@ -167,7 +180,11 @@ def twitter_bot_graph():
     ) = is_fixture_date_updated(next_fixture)
     post_tweet(create_next_fixture_date_tweet(create_next_fixture_date_tweet_branch))
 
-    create_opp_stats_branch, do_nothing_branch = is_it_matchday(is_it_matchday_branch)
+    league_match_branch, do_nothing_branch = is_it_matchday(is_it_matchday_branch)
+    do_nothing(do_nothing_branch)
+    create_opp_stats_branch, do_nothing_branch = is_it_a_league_match(
+        league_match_branch
+    )
     post_tweet(create_opp_stats_tweet(create_opp_stats(create_opp_stats_branch)))
     do_nothing(do_nothing_branch)
 
