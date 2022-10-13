@@ -30,15 +30,12 @@ from helpers import (
 )
 from standings import Tables
 from configs.fbref import championship_url
-import global_vars
 
 
 @op(config_schema={"team_id": int})
 def get_next_fixture_obj(context):
     print("Getting the next fixture object")
     fix = get_next_fixture(context.op_config["team_id"])
-    global_vars.request_count += 1
-    print(f"Number of requests: {global_vars.request_count}")
     return fix
 
 
