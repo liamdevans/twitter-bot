@@ -12,6 +12,7 @@
   - pre-match post on opposition team
   - make reusable for other teams
     - work with other aspects of Twitter API (i.e. if someone @'s account with team name, respond with next opponent)
+    - pin tweet of next fixture
   - experiment with email functionality
 
 
@@ -69,10 +70,11 @@ client.create_tweet(text=my_tweet)
 
 
 ## TODO
-- TODO if today is match day tweet about opposition and wait for game end to tweet stats
-- TODO perform check to see if tweet is same as previous post
-- TODO create tests for functions
-- TODO add logging/dagster logging
+- if today is match day tweet about opposition and wait for game end to tweet stats
+- create pyfootball function to get teams fixture for a particular competition
+- perform check to see if tweet is same as previous post
+- create tests for functions
+- add logging/dagster logging
 
-- TODO turn data writers into dagster assets
-- TODO add type hinting for Fixture objects
+- turn data writers into dagster assets
+- add type hinting for Fixture objects

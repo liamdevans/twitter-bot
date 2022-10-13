@@ -2,8 +2,21 @@
 A module containing dagster ops and jobs used to schedule football tweets as part
 of the `twitter_bot` package.
 """
+from datetime import datetime
+from pathlib import Path
+
 import tweepy.errors
-from dagster import op, job, ScheduleDefinition, repository
+from dagster import (
+    op,
+    repository,
+    Out,
+    Output,
+    graph,
+    get_dagster_logger,
+    asset,
+    schedule,
+    RunRequest,
+)
 
 from helpers import (
     twitter_auth,
@@ -12,70 +25,184 @@ from helpers import (
     format_tweet,
     make_date_readable,
     home_or_away,
+    write_latest_fixture_date,
+    make_ordinal,
 )
+from standings import Tables
+from configs.fbref import championship_url
 
 
 @op(config_schema={"team_id": int})
-def create_next_fixture_date_tweet_op(context):
+def get_next_fixture_obj(context):
+    print("Getting the next fixture object")
+    fix = get_next_fixture(context.op_config["team_id"])
+    return fix
+
+
+@asset
+def get_latest_fixture_date():
+    path = Path().cwd() / "latest_fixture.txt"
+    with open(path, mode="r", encoding="utf-8") as file:
+        date = file.read()
+    return date
+
+
+@op(
+    out={
+        "create_next_fixture_date_tweet_branch": Out(is_required=False),
+        "is_it_matchday_branch": Out(is_required=False),
+    }
+)
+def is_fixture_date_updated(fix):
+    same_as_previous = fix.date.strftime(format="%d-%m-%y") == get_latest_fixture_date()
+    print(
+        f"Dates {fix.date.strftime(format='%d-%m-%y')} and {get_latest_fixture_date()} are the same: {same_as_previous}"
+    )
+    if same_as_previous:
+        yield Output(fix, "is_it_matchday_branch")
+    else:
+        write_latest_fixture_date(fix.date)
+        yield Output(fix, "create_next_fixture_date_tweet_branch")
+
+
+@op
+def create_next_fixture_date_tweet(context, fix):
     """
-    Dagster op that forms the first part of the job create_next_fixture_date_tweet_job.
+    Dagster op that forms the first part of the job twitter_bot_graph.
     Uses the get_next_fixture and get_opposition_team functions to return a
     formatted, 'tweetable' string.
     Args:
+        fix:
         context: context contains dagster configuration for team_id
 
     Returns:
         A formatted, Twitter ready tweet
     """
-    fix = get_next_fixture(context.op_config["team_id"])
-    opp = get_opposition_team(fix, context.op_config["team_id"])
-    loc = home_or_away(fix, context.op_config["team_id"])
+    team_id = context.run_config["ops"]["get_next_fixture_obj"]["config"]["team_id"]
+    opp = get_opposition_team(fix, team_id)
+    loc = home_or_away(fix, team_id)
     tweet = f"The next match is {loc} against {opp['name']} on {make_date_readable(fix.date)}"
-    # return format_tweet(tweet)
     return tweet
+
+
+@op(
+    out={
+        "league_match_branch": Out(is_required=False),
+        "do_nothing_branch": Out(is_required=False),
+    }
+)
+def is_it_matchday(fix):
+    my_logger = get_dagster_logger()
+    my_logger.info(f"The fixture object is: {fix}")
+    if fix.date.date() == datetime.today().date():
+        yield Output(fix, "league_match_branch")
+    else:
+        yield Output(fix, "do_nothing_branch")
+
+
+@op(
+    out={
+        "create_opp_stats_branch": Out(is_required=False),
+        "do_nothing_branch": Out(is_required=False),
+    }
+)
+def is_it_a_league_match(fix):
+    if fix.competition["type"] == "LEAGUE":
+        yield Output(fix, "create_opp_stats_branch")
+    else:
+        yield Output(fix, "do_nothing_branch")
+
+
+@op
+def create_opp_stats(context, fix):
+    team_id = context.run_config["ops"]["get_next_fixture_obj"]["config"]["team_id"]
+    opp_name = get_opposition_team(fix, team_id)["name"]
+    my_tbl = Tables(
+        championship_url
+    )  # TODO remove hardcode. make a configuration when selecting league
+    stats = my_tbl.collect_stats(opp_name)
+    stats["opposition"] = opp_name
+    stats["position"] = make_ordinal(stats["position"])
+    stats["competition"] = fix.competition["name"]
+    return stats
+
+
+@op
+def create_opp_stats_tweet(stats):
+    football = "\U000026BD"
+    tweet = (
+        f"{stats['opposition']} currently sit {stats['position']} in the {stats['competition']}.\n"
+        f"Having scored {stats['goals_for']} and conceded {stats['goals_against']} goals {football}\n\n"
+        f"Form: {stats['form_emoji']}\n"
+        f"Top Scorer(s): {stats['top_scorer']}\n"
+        f"(W/D/L) {stats['wins']}/{stats['draws']}/{stats['loss']}\n"
+    )
+    # TODO incorporate character count to not exceed 280, else remove parts
+    return tweet
+
+
+@op
+def do_nothing(fix):
+    print("Today is neither match day or the day after a match day!")
+    return None
 
 
 @op
 def post_tweet(tweet: str) -> None:
     """
-    Dagster op that forms the second part of the job create_next_fixture_date_tweet_job.
+    Dagster op that forms the second part of the job twitter_bot_graph.
     Given a tweet, posts to account using Twitter API v2 Client.
     Args:
         tweet: Tweet to post
     """
     client = twitter_auth()
+    tweet = format_tweet(tweet)
     try:
         client.create_tweet(text=tweet)
     except tweepy.errors.Forbidden:
         print("Not allowed to create a tweet with duplicate content")
+        pass
 
 
-@job
-def create_next_fixture_date_tweet_job():
+@graph
+def twitter_bot_graph():
     """
-    Dagster job to create_next_fixture_date_tweet_op and then post_tweet.
-    Job scheduled to run 10 AM UTC daily.
+    Dagster graph to create_next_fixture_date_tweet and then post_tweet.
+    Graph scheduled to run 10 AM UTC daily.
     """
-    post_tweet(create_next_fixture_date_tweet_op())
+    next_fixture = get_next_fixture_obj()
+    (
+        create_next_fixture_date_tweet_branch,
+        is_it_matchday_branch,
+    ) = is_fixture_date_updated(next_fixture)
+    post_tweet(create_next_fixture_date_tweet(create_next_fixture_date_tweet_branch))
+
+    league_match_branch, do_nothing_branch = is_it_matchday(is_it_matchday_branch)
+    do_nothing(do_nothing_branch)
+    create_opp_stats_branch, do_nothing_branch = is_it_a_league_match(
+        league_match_branch
+    )
+    post_tweet(create_opp_stats_tweet(create_opp_stats(create_opp_stats_branch)))
+    do_nothing(do_nothing_branch)
 
 
-schedule = ScheduleDefinition(
-    job=create_next_fixture_date_tweet_job, cron_schedule="0 10 * * *"
-)  # runs daily @ 10 AM UTC
-
-job_config = create_next_fixture_date_tweet_job.execute_in_process(
-    run_config={
-        "ops": {"create_next_fixture_date_tweet_op": {"config": {"team_id": 328}}}
-    }
+@schedule(
+    job=twitter_bot_graph,
+    execution_timezone="Europe/London",
+    cron_schedule="0 13 * * *",
 )
+def twitter_bot_schedule():
+    return RunRequest(
+        run_config={"ops": {"get_next_fixture_obj": {"config": {"team_id": 328}}}}
+    )
 
 
 @repository
 def next_fixture_repo():
     """
-    Dagster repository object for the create_next_fixture_date_tweet_job and its
+    Dagster repository object for the twitter_bot_graph and its
     corresponding schedule.
     Returns:
         list of job object and ScheduleDefinition
     """
-    return [schedule, create_next_fixture_date_tweet_job]
+    return [twitter_bot_schedule, twitter_bot_graph, get_latest_fixture_date]

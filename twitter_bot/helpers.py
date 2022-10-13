@@ -2,16 +2,12 @@
 A module of helper functions to be used within the `main` module of the `twitter_bot` package.
 """
 import datetime
-import csv
-from pathlib import Path
-from typing import List, Dict, Any
-
 import pytz
-import requests.exceptions
 import tweepy
-
 from pyfootball.football import Football
 from configs import keys
+
+from pathlib import Path
 
 
 def twitter_auth():
@@ -27,24 +23,6 @@ def twitter_auth():
         access_token_secret=keys.ACCESS_TOKEN_SECRET,
     )
     return client
-
-
-def get_prev_response():
-    """Returns information about the most recent response.
-
-    :returns: prev_response: Information about the most recent response.
-    """
-    return globals.prev_response
-
-
-def delete_tweet(tweet_id):
-    """
-    Given a tweet_id, delete the corresponding tweet on the account we authenticate to.
-    Args:
-        tweet_id: ID of the tweet
-    """
-    client = twitter_auth()
-    client.delete_tweet(tweet_id)
 
 
 def format_tweet(tweet: str) -> str:
@@ -111,10 +89,7 @@ def make_date_readable(date_obj: datetime.datetime) -> str:
         str: human-readable datetime
     """
     day = date_obj.day
-    if 4 <= day <= 20 or 24 <= day <= 30:
-        suffix = "th"
-    else:
-        suffix = ["st", "nd", "rd"][day % 10 - 1]
+    suffix = make_ordinal(day)[-2:]
     return date_obj.strftime(f"%a %-d{suffix} %b at %-I:%M %p")
 
 
@@ -162,55 +137,39 @@ def home_or_away(fixture, team_id: int) -> str:
     return None
 
 
-def get_comp_ids() -> List[Dict[str, Any]]:
-    """
-    Function to get all the competitions available from the football-data.org API.
-    Returns:
-        competition_ids and competition_names
-    """
-    fbl = Football()
-    comps = fbl.get_all_competitions()
-    return [{"comp_id": comp.id, "comp_name": comp.name} for comp in comps]
+def write_latest_fixture_date(fixture_date: datetime.datetime):
+    path = Path().cwd() / "latest_fixture.txt"
+    date = datetime.datetime.strftime(fixture_date, format="%d-%m-%y")
+    with open(path, mode="w", encoding="utf-8") as file:
+        file.write(date)
 
 
-def write_comp_ids():
-    """
-    Function to create a csv containing all the competition IDs and names for those available
-    in the football-data.org API
-    """
-    path = Path.cwd().parent / "data" / "comp_ids.csv"
-    with open(path, mode="w", encoding="utf-8") as csv_file:
-        fieldnames = ["comp_id", "comp_name"]
-        writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
-        writer.writeheader()
-        for row in get_comp_ids():
-            writer.writerow(row)
+def get_latest_fixture_date():
+    pass
 
 
-def get_comp_team_ids(comp_id) -> List[Dict[str, Any]]:
+def make_ordinal(n):
     """
-    Given a comp_id, returns all the teams involved from the football-data.org API.
-    Returns:
-        team_ids and team_names
+    Convert an integer into its ordinal representation::
+
+        make_ordinal(0)   => '0th'
+        make_ordinal(3)   => '3rd'
+        make_ordinal(122) => '122nd'
+        make_ordinal(213) => '213th'
     """
-    fbl = Football()
-    teams = fbl.get_competition_teams(comp_id)
-    return [{"team_id": team.id, "team_name": team.name} for team in teams]
+    n = int(n)
+    if 11 <= (n % 100) <= 13:
+        suffix = "th"
+    else:
+        suffix = ["th", "st", "nd", "rd", "th"][min(n % 10, 4)]
+    return str(n) + suffix
 
 
-def write_comp_team_ids(comp_id):
+def delete_tweet(tweet_id):
     """
-    Given a comp_id, creates a csv containing all the team IDs and names involved
-    for those available in the football-data.org API
+    Given a tweet_id, delete the corresponding tweet on the account we authenticate to.
+    Args:
+        tweet_id: ID of the tweet
     """
-    path = Path.cwd().parent / "data" / f"team_ids_{comp_id}.csv"
-    try:
-        with open(path, mode="w", encoding="utf-8") as csv_file:
-            fieldnames = ["team_id", "team_name"]
-            writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
-            writer.writeheader()
-            for row in get_comp_team_ids(comp_id):
-                writer.writerow(row)
-    except requests.exceptions.HTTPError:
-        print(f"Competition ID {comp_id} not found.")
-        path.unlink()
+    client = twitter_auth()
+    client.delete_tweet(tweet_id)
