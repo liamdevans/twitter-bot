@@ -27,6 +27,7 @@ from helpers import (
     home_or_away,
     write_latest_fixture_date,
     make_ordinal,
+    is_tweet_too_long,
 )
 from standings import Tables
 from configs.fbref import championship_url
@@ -137,7 +138,8 @@ def create_opp_stats_tweet(stats):
         f"Top Scorer(s): {stats['top_scorer']}\n"
         f"(W/D/L) {stats['wins']}/{stats['draws']}/{stats['loss']}\n"
     )
-    # TODO incorporate character count to not exceed 280, else remove parts
+    while is_tweet_too_long(tweet):
+        tweet = "\n".join(tweet.split("\n")[:-1])
     return tweet
 
 
