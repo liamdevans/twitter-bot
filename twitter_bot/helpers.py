@@ -165,6 +165,10 @@ def make_ordinal(n):
     return str(n) + suffix
 
 
+def is_tweet_too_long(tweet: str):
+    return len(tweet) > 280
+
+
 def delete_tweet(tweet_id):
     """
     Given a tweet_id, delete the corresponding tweet on the account we authenticate to.
