@@ -28,15 +28,17 @@ from helpers import (
     write_latest_fixture_date,
     make_ordinal,
     is_tweet_too_long,
+    get_home_team_venue,
 )
 from standings import Tables
-from configs.fbref import championship_url
+from configs.fbref import championship_url, cron_schedule
 
 
 @op(config_schema={"team_id": int})
 def get_next_fixture_obj(context):
     print("Getting the next fixture object")
     fix = get_next_fixture(context.op_config["team_id"])
+    print(f"Next fixture is: {fix}")
     return fix
 
 
@@ -81,8 +83,18 @@ def create_next_fixture_date_tweet(context, fix):
     """
     team_id = context.run_config["ops"]["get_next_fixture_obj"]["config"]["team_id"]
     opp = get_opposition_team(fix, team_id)
-    loc = home_or_away(fix, team_id)
-    tweet = f"The next match is {loc} against {opp['name']} on {make_date_readable(fix.date)}"
+    h_a = home_or_away(fix, team_id)
+    location = get_home_team_venue(fix)
+    date_time = make_date_readable(fix.date)
+
+    pinpoint, calendar, clock = "\U0001F4CD", "\U0001F4C5", "\U000023F0"
+
+    tweet = (
+        f"The next match is {h_a} against {opp['name']}\n\n"
+        f"{pinpoint} {location}\n"
+        f"{calendar} {date_time[0]}\n"
+        f"{clock} {date_time[1]}"
+    )
     return tweet
 
 
@@ -95,7 +107,7 @@ def create_next_fixture_date_tweet(context, fix):
 def is_it_matchday(fix):
     my_logger = get_dagster_logger()
     my_logger.info(f"The fixture object is: {fix}")
-    if fix.date.date() == datetime.today().date():
+    if True:  # fix.date.date() == datetime.today().date():
         yield Output(fix, "league_match_branch")
     else:
         yield Output(fix, "do_nothing_branch")
@@ -117,12 +129,12 @@ def is_it_a_league_match(fix):
 @op
 def create_opp_stats(context, fix):
     team_id = context.run_config["ops"]["get_next_fixture_obj"]["config"]["team_id"]
-    opp_name = get_opposition_team(fix, team_id)["name"]
+    opp_name = get_opposition_team(fix, team_id)
     my_tbl = Tables(
         championship_url
     )  # TODO remove hardcode. make a configuration when selecting league
-    stats = my_tbl.collect_stats(opp_name)
-    stats["opposition"] = opp_name
+    stats = my_tbl.collect_stats(opp_name["name"])
+    stats["opposition"] = opp_name["shortName"]
     stats["position"] = make_ordinal(stats["position"])
     stats["competition"] = fix.competition["name"]
     return stats
@@ -136,7 +148,7 @@ def create_opp_stats_tweet(stats):
         f"Having scored {stats['goals_for']} and conceded {stats['goals_against']} goals {football}\n\n"
         f"Form: {stats['form_emoji']}\n"
         f"Top Scorer(s): {stats['top_scorer']}\n"
-        f"(W/D/L) {stats['wins']}/{stats['draws']}/{stats['loss']}\n"
+        f"W: {stats['wins']}, D: {stats['draws']},  L: {stats['loss']}\n"
     )
     while is_tweet_too_long(tweet):
         tweet = "\n".join(tweet.split("\n")[:-1])
@@ -191,7 +203,7 @@ def twitter_bot_graph():
 @schedule(
     job=twitter_bot_graph,
     execution_timezone="Europe/London",
-    cron_schedule="0 13 * * *",
+    cron_schedule=cron_schedule,
 )
 def twitter_bot_schedule():
     return RunRequest(

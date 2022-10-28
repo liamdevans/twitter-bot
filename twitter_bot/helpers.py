@@ -79,7 +79,7 @@ def utc_to_uk_time(_object: object):
     return _object
 
 
-def make_date_readable(date_obj: datetime.datetime) -> str:
+def make_date_readable(date_obj: datetime.datetime) -> list:
     """
     Given a datetime object, returns it in a more human-readable style.
     Args:
@@ -90,7 +90,7 @@ def make_date_readable(date_obj: datetime.datetime) -> str:
     """
     day = date_obj.day
     suffix = make_ordinal(day)[-2:]
-    return date_obj.strftime(f"%a %-d{suffix} %b at %-I:%M %p")
+    return [date_obj.strftime(f"%a %-d{suffix} %b"), date_obj.strftime("%-I:%M %p")]
 
 
 def get_opposition_team(fixture, team_id):
@@ -135,6 +135,21 @@ def home_or_away(fixture, team_id: int) -> str:
         f"vs {fixture.away_team_name}({fixture.away_team_id})"
     )
     return None
+
+
+def get_home_team_venue(fixture) -> str:
+    """
+    Given a Fixture object, return the venue of the home team.
+    Be careful, this may be incorrect if the games played at a neutral ground.
+    Args:
+        fixture: Fixture object
+
+    Returns:
+        The name of the home teams venue.
+    """
+    fbl = Football()
+    home_team_id = fixture.home_team_id
+    return fbl.get_team(home_team_id).venue
 
 
 def write_latest_fixture_date(fixture_date: datetime.datetime):
