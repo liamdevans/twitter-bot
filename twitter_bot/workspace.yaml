@@ -1,2 +1,9 @@
+#load_from:
+#  - python_file: main.py
+
 load_from:
-  - python_file: main.py
+  # Each entry here corresponds to a container that exposes a gRPC server.
+  - grpc_server:
+      host: docker_example_user_code
+      port: 4000
+      location_name: "example_user_code"
